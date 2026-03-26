@@ -134,8 +134,8 @@ services:
     image: prom/mysqld-exporter:latest
     container_name: todo-mysqld-exporter
     restart: unless-stopped
-    environment:
-      DATA_SOURCE_NAME: "todo_user:todo_password@(mysql:3306)/todo_db"
+    volumes:
+      - ./mysqld-exporter/.my.cnf:/root/.my.cnf:ro
     command:
       - "--collect.global_status"
       - "--collect.global_variables"
