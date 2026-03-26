@@ -139,6 +139,7 @@ services:
     command:
       - "--mysqld.address=mysql:3306"
       - "--mysqld.username=todo_user"
+      - "--mysqld.password=todo_password"
       - "--collect.global_status"
       - "--collect.global_variables"
       - "--collect.info_schema.tables"
