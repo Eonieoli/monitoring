@@ -135,9 +135,9 @@ services:
     container_name: todo-mysqld-exporter
     restart: unless-stopped
     volumes:
-      - ./mysqld-exporter:/etc/mysqld-exporter:ro
+      - ./mysqld-exporter:/tmp/mysqld-exporter:ro
     command:
-      - "--config.my-cnf=/etc/mysqld-exporter/.my.cnf"
+      - "--config.my-cnf=/tmp/mysqld-exporter/.my.cnf"
       - "--collect.global_status"
       - "--collect.global_variables"
       - "--collect.info_schema.tables"
