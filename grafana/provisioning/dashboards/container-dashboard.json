@@ -349,7 +349,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "(sum by (name) (container_memory_usage_bytes{job=\"cadvisor\", name!=\"\"}) / scalar(node_memory_MemTotal_bytes{job=\"node-exporter\"})) * 100",
+          "expr": "(sum by (name) (container_memory_usage_bytes{job=\"cadvisor\", name!=\"\"}) / ignoring(name) group_left() sum(node_memory_MemTotal_bytes{job=\"node-exporter\"})) * 100",
           "legendFormat": "{{name}}",
           "refId": "A"
         }
