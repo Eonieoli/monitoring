@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:grafana.com)",
+      "WebFetch(domain:oneuptime.com)",
+      "WebFetch(domain:api.slack.com)",
+      "WebFetch(domain:docs.slack.dev)"
+    ]
+  }
+}
