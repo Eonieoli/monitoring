@@ -1,278 +1,256 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Todo, FilterType } from './types'
 import { fetchTodos, createTodo, updateTodo, deleteTodo, deleteCompletedTodos } from './api'
 
+// ── Icons ────────────────────────────────────────────────────────────────────
+const CheckIcon = () => (
+  <svg className="check-icon w-3 h-3" viewBox="0 0 12 12" fill="none">
+    <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+
+const TrashIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4h6v2" />
+  </svg>
+)
+
+const PlusIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+    <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+  </svg>
+)
+
+// ── Stat Card ────────────────────────────────────────────────────────────────
+function StatCard({ value, label, accent }: { value: number; label: string; accent: string }) {
+  return (
+    <div className="flex-1 rounded-2xl p-4 flex flex-col gap-1"
+      style={{ background: 'rgba(255,255,255,0.55)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.8)' }}>
+      <span className="text-3xl font-bold tracking-tight" style={{ color: accent }}>{value}</span>
+      <span className="text-xs font-medium" style={{ color: 'rgba(100,80,160,0.55)' }}>{label}</span>
+    </div>
+  )
+}
+
+// ── Main ─────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [todos, setTodos] = useState<Todo[]>([])
-  const [filter, setFilter] = useState<FilterType>('all')
-  const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [editingId, setEditingId] = useState<number | null>(null)
+  const [todos, setTodos]           = useState<Todo[]>([])
+  const [filter, setFilter]         = useState<FilterType>('all')
+  const [input, setInput]           = useState('')
+  const [loading, setLoading]       = useState(true)
+  const [error, setError]           = useState<string | null>(null)
+  const [editingId, setEditingId]   = useState<number | null>(null)
   const [editingText, setEditingText] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const loadTodos = useCallback(async () => {
     try {
       setError(null)
-      const completed =
-        filter === 'active' ? false : filter === 'completed' ? true : undefined
-      const data = await fetchTodos(completed)
-      setTodos(data)
+      const completed = filter === 'active' ? false : filter === 'completed' ? true : undefined
+      setTodos(await fetchTodos(completed))
     } catch {
-      setError('할 일 목록을 불러오지 못했습니다.')
+      setError('목록을 불러오지 못했습니다.')
     } finally {
       setLoading(false)
     }
   }, [filter])
 
-  useEffect(() => {
-    setLoading(true)
-    loadTodos()
-  }, [loadTodos])
+  useEffect(() => { setLoading(true); loadTodos() }, [loadTodos])
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
     const title = input.trim()
     if (!title) return
-    try {
-      await createTodo(title)
-      setInput('')
-      loadTodos()
-    } catch {
-      setError('할 일을 추가하지 못했습니다.')
-    }
+    try { await createTodo(title); setInput(''); loadTodos() }
+    catch { setError('추가하지 못했습니다.') }
   }
 
   const handleToggle = async (todo: Todo) => {
-    try {
-      await updateTodo(todo.id, { completed: !todo.completed })
-      loadTodos()
-    } catch {
-      setError('상태를 변경하지 못했습니다.')
-    }
+    try { await updateTodo(todo.id, { completed: !todo.completed }); loadTodos() }
+    catch { setError('상태를 변경하지 못했습니다.') }
   }
 
   const handleDelete = async (id: number) => {
-    try {
-      await deleteTodo(id)
-      loadTodos()
-    } catch {
-      setError('삭제하지 못했습니다.')
-    }
-  }
-
-  const handleEditStart = (todo: Todo) => {
-    setEditingId(todo.id)
-    setEditingText(todo.title)
+    try { await deleteTodo(id); loadTodos() }
+    catch { setError('삭제하지 못했습니다.') }
   }
 
   const handleEditSave = async (id: number) => {
     const title = editingText.trim()
     if (!title) return
-    try {
-      await updateTodo(id, { title })
-      setEditingId(null)
-      loadTodos()
-    } catch {
-      setError('수정하지 못했습니다.')
-    }
+    try { await updateTodo(id, { title }); setEditingId(null); loadTodos() }
+    catch { setError('수정하지 못했습니다.') }
   }
 
-  const handleClearCompleted = async () => {
-    try {
-      await deleteCompletedTodos()
-      loadTodos()
-    } catch {
-      setError('완료된 항목을 삭제하지 못했습니다.')
-    }
-  }
+  const allTodos     = todos
+  const activeCount  = allTodos.filter(t => !t.completed).length
+  const doneCount    = allTodos.filter(t => t.completed).length
+  const totalCount   = allTodos.length
+  const progress     = totalCount > 0 ? (doneCount / totalCount) * 100 : 0
 
-  const activeCount = todos.filter((t) => !t.completed).length
-  const completedCount = todos.filter((t) => t.completed).length
-  const totalCount = todos.length
-  const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
+  const today = new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
 
-  const filterButtons: { label: string; value: FilterType; count: number }[] = [
-    { label: '전체', value: 'all', count: totalCount },
-    { label: '진행 중', value: 'active', count: activeCount },
-    { label: '완료', value: 'completed', count: completedCount },
+  const filters: { label: string; value: FilterType }[] = [
+    { label: '전체', value: 'all' },
+    { label: '진행 중', value: 'active' },
+    { label: '완료', value: 'completed' },
   ]
 
   return (
-    <div className="noise min-h-screen flex flex-col items-center justify-start py-16 px-4 relative overflow-hidden"
-      style={{ background: 'radial-gradient(ellipse at 20% 50%, rgba(124,58,237,0.08) 0%, transparent 60%), radial-gradient(ellipse at 80% 20%, rgba(79,70,229,0.06) 0%, transparent 50%), #0a0a0f' }}>
+    <div className="min-h-screen" style={{ background: '#f8f7ff' }}>
 
-      {/* Background orbs */}
-      <div className="fixed top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full opacity-20 pointer-events-none"
-        style={{ background: 'radial-gradient(circle, rgba(124,58,237,0.4) 0%, transparent 70%)', filter: 'blur(60px)' }} />
-      <div className="fixed bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full opacity-15 pointer-events-none"
-        style={{ background: 'radial-gradient(circle, rgba(96,165,250,0.4) 0%, transparent 70%)', filter: 'blur(60px)' }} />
+      {/* ── Hero gradient header ─────────────────────────────────── */}
+      <div className="relative overflow-hidden"
+        style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 40%, #4f46e5 100%)', paddingBottom: '80px' }}>
 
-      <div className="relative z-10 w-full max-w-md animate-fade-in-up">
+        {/* Decorative circles */}
+        <div className="absolute top-[-60px] right-[-60px] w-64 h-64 rounded-full pointer-events-none"
+          style={{ background: 'rgba(255,255,255,0.06)' }} />
+        <div className="absolute bottom-[-40px] left-[-30px] w-48 h-48 rounded-full pointer-events-none"
+          style={{ background: 'rgba(255,255,255,0.05)' }} />
+        <div className="absolute top-[30px] left-[20%] w-24 h-24 rounded-full pointer-events-none"
+          style={{ background: 'rgba(255,255,255,0.04)' }} />
 
-        {/* Header */}
-        <div className="mb-10 text-center">
-          <div className="inline-flex items-center gap-2 mb-3 px-4 py-1.5 rounded-full glass text-xs font-medium tracking-widest uppercase"
-            style={{ color: 'rgba(167,139,250,0.8)' }}>
-            <span className="w-1.5 h-1.5 rounded-full bg-violet-400 inline-block" style={{ boxShadow: '0 0 6px rgba(167,139,250,0.8)' }} />
-            Task Manager
+        <div className="relative z-10 max-w-md mx-auto px-6 pt-12 pb-4">
+          {/* Date badge */}
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full mb-5"
+            style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)' }}>
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />
+            <span className="text-xs text-white/80 font-medium">{today}</span>
           </div>
-          <h1 className="text-5xl font-800 tracking-tighter leading-none mb-2" style={{ fontWeight: 800 }}>
-            <span className="gradient-text">My Todos</span>
-          </h1>
-          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>오늘 할 일을 정리하고 집중하세요</p>
+
+          <h1 className="text-4xl font-bold text-white mb-1 tracking-tight">My Todos</h1>
+          <p className="text-white/50 text-sm mb-8">오늘도 하나씩 해치워봐요</p>
+
+          {/* Stats row */}
+          <div className="flex gap-3">
+            <StatCard value={totalCount}  label="전체"    accent="#f0abfc" />
+            <StatCard value={activeCount} label="진행 중" accent="#fde68a" />
+            <StatCard value={doneCount}   label="완료"    accent="#6ee7b7" />
+          </div>
         </div>
+      </div>
 
-        {/* Progress Card */}
-        <div className="glass rounded-2xl p-5 mb-4">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.4)' }}>전체 진행률</span>
-            <span className="text-xs font-bold" style={{ color: 'rgba(167,139,250,0.9)' }}>{progressPercent}%</span>
+      {/* ── Content card (overlaps hero) ─────────────────────────── */}
+      <div className="max-w-md mx-auto px-4 relative z-10" style={{ marginTop: '-48px' }}>
+        <div className="rounded-3xl overflow-hidden"
+          style={{ background: 'white', boxShadow: '0 20px 60px rgba(109,40,217,0.12), 0 4px 16px rgba(109,40,217,0.06)' }}>
+
+          {/* Progress bar */}
+          <div className="h-1 w-full" style={{ background: '#ede9fe' }}>
+            <div className="h-full transition-all duration-700 ease-out"
+              style={{ width: `${progress}%`, background: 'linear-gradient(90deg, #7c3aed, #60a5fa)' }} />
           </div>
-          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-            <div
-              className="h-full rounded-full progress-bar transition-all duration-700 ease-out"
-              style={{ width: `${progressPercent}%` }}
+
+          {/* Input form */}
+          <form onSubmit={handleAdd} className="flex items-center gap-3 px-5 py-4"
+            style={{ borderBottom: '1px solid #f3f0ff' }}>
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              placeholder="새로운 할 일을 입력하세요"
+              className="flex-1 text-sm text-gray-700 placeholder-gray-300 outline-none bg-transparent"
+              style={{ caretColor: '#7c3aed' }}
             />
-          </div>
-          <div className="flex gap-4 mt-4">
-            {[
-              { label: '전체', value: totalCount, color: 'rgba(167,139,250,1)' },
-              { label: '진행 중', value: activeCount, color: 'rgba(251,191,36,1)' },
-              { label: '완료', value: completedCount, color: 'rgba(52,211,153,1)' },
-            ].map(({ label, value, color }) => (
-              <div key={label} className="flex-1 text-center">
-                <div className="text-xl font-bold" style={{ color }}>{value}</div>
-                <div className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.3)' }}>{label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Main Card */}
-        <div className="glass-strong rounded-2xl overflow-hidden">
-
-          {/* Add Form */}
-          <form onSubmit={handleAdd} className="flex items-center gap-3 p-4"
-            style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-            <div className="flex-1 flex items-center gap-3 rounded-xl px-4 py-3"
-              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
-              <svg className="w-4 h-4 flex-shrink-0" style={{ color: 'rgba(167,139,250,0.5)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="새로운 할 일 추가..."
-                className="input-field flex-1 text-sm"
-                style={{ color: 'rgba(255,255,255,0.85)' }}
-              />
-            </div>
             <button
               type="submit"
               disabled={!input.trim()}
-              className="btn-primary flex-shrink-0 px-5 py-3 text-white text-sm font-semibold rounded-xl disabled:opacity-30 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
+              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all duration-150"
+              style={{
+                background: input.trim()
+                  ? 'linear-gradient(135deg, #7c3aed, #4f46e5)'
+                  : '#e5e7eb',
+                color: input.trim() ? 'white' : '#9ca3af',
+                boxShadow: input.trim() ? '0 4px 12px rgba(124,58,237,0.35)' : 'none',
+              }}
             >
+              <PlusIcon />
               추가
             </button>
           </form>
 
-          {/* Filter Tabs */}
-          <div className="flex" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-            {filterButtons.map(({ label, value, count }) => (
-              <button
-                key={value}
-                onClick={() => setFilter(value)}
-                className={`filter-tab flex-1 relative py-3.5 text-xs font-semibold tracking-wide transition-all duration-200 ${filter === value ? 'active' : ''}`}
-                style={{
-                  color: filter === value ? 'rgba(167,139,250,1)' : 'rgba(255,255,255,0.3)',
-                }}
-              >
-                {label}
-                {count > 0 && (
-                  <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold"
-                    style={{
-                      background: filter === value ? 'rgba(124,58,237,0.3)' : 'rgba(255,255,255,0.06)',
-                      color: filter === value ? 'rgba(167,139,250,1)' : 'rgba(255,255,255,0.3)',
-                    }}>
-                    {count}
-                  </span>
-                )}
-              </button>
-            ))}
+          {/* Filter tabs */}
+          <div className="flex items-center gap-1.5 px-5 py-3" style={{ borderBottom: '1px solid #f3f0ff' }}>
+            {filters.map(({ label, value }) => {
+              const active = filter === value
+              return (
+                <button key={value} onClick={() => setFilter(value)}
+                  className="px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-200"
+                  style={{
+                    background: active ? '#7c3aed' : 'transparent',
+                    color: active ? 'white' : '#9ca3af',
+                    boxShadow: active ? '0 2px 8px rgba(124,58,237,0.3)' : 'none',
+                  }}>
+                  {label}
+                </button>
+              )
+            })}
           </div>
 
           {/* Error */}
           {error && (
-            <div className="mx-4 mt-3 flex items-center gap-2 px-4 py-3 rounded-xl text-xs animate-fade-in"
-              style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: 'rgba(252,165,165,1)' }}>
-              <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <div className="mx-5 mt-3 flex items-center gap-2 text-xs px-3 py-2.5 rounded-xl"
+              style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fee2e2' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
               {error}
             </div>
           )}
 
-          {/* Todo List */}
-          <ul className="min-h-[220px] max-h-[400px] overflow-y-auto py-2">
+          {/* Todo list */}
+          <ul className="min-h-[200px] max-h-[380px] overflow-y-auto px-3 py-2">
             {loading ? (
-              <li className="flex flex-col items-center justify-center h-48 gap-3">
-                <div className="loading-spinner w-7 h-7 rounded-full" />
-                <span className="text-xs" style={{ color: 'rgba(255,255,255,0.25)' }}>불러오는 중...</span>
+              /* Skeleton loader */
+              <li className="py-3 px-2 space-y-3">
+                {[80, 60, 90].map((w, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className="w-5 h-5 rounded-full flex-shrink-0 animate-pulse" style={{ background: '#ede9fe' }} />
+                    <div className="h-3.5 rounded-full animate-pulse" style={{ width: `${w}%`, background: '#f3f0ff' }} />
+                  </div>
+                ))}
               </li>
             ) : todos.length === 0 ? (
-              <li className="flex flex-col items-center justify-center h-48 gap-3 animate-fade-in">
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                  <svg className="w-6 h-6" style={{ color: 'rgba(255,255,255,0.2)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              <li className="flex flex-col items-center justify-center py-14 gap-3">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                  style={{ background: '#f5f3ff' }}>
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#c4b5fd" strokeWidth="1.5" strokeLinecap="round">
+                    <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+                    <rect x="9" y="3" width="6" height="4" rx="1" />
+                    <line x1="9" y1="12" x2="15" y2="12" /><line x1="9" y1="16" x2="13" y2="16" />
                   </svg>
                 </div>
-                <span className="text-sm" style={{ color: 'rgba(255,255,255,0.2)' }}>
-                  {filter === 'all' ? '할 일이 없습니다' : '해당하는 항목이 없습니다'}
-                </span>
+                <p className="text-sm font-medium" style={{ color: '#c4b5fd' }}>
+                  {filter === 'all' ? '할 일이 없어요' : '해당하는 항목이 없어요'}
+                </p>
+                {filter === 'all' && (
+                  <p className="text-xs" style={{ color: '#ddd6fe' }}>위에서 새 할 일을 추가해보세요</p>
+                )}
               </li>
             ) : (
-              todos.map((todo, index) => (
-                <li
-                  key={todo.id}
-                  className="todo-row flex items-center gap-3 px-4 py-3.5 mx-2 my-0.5 rounded-xl group transition-all duration-200 cursor-default"
-                  style={{
-                    animationDelay: `${index * 40}ms`,
-                    opacity: 0,
-                    animation: `fadeInUp 0.3s ease ${index * 40}ms forwards`,
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLElement).style.background = 'transparent'
-                  }}
+              todos.map((todo, i) => (
+                <li key={todo.id}
+                  className="item-enter group flex items-center gap-3 px-3 py-3.5 rounded-2xl transition-colors duration-150"
+                  style={{ animationDelay: `${i * 35}ms`, opacity: 0 }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#faf8ff')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
-                  {/* Custom Checkbox */}
+                  {/* Custom checkbox */}
                   <button
                     onClick={() => handleToggle(todo)}
-                    className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${
-                      todo.completed ? 'checkbox-done' : ''
-                    }`}
-                    style={!todo.completed ? {
-                      borderColor: 'rgba(255,255,255,0.2)',
-                    } : {}}
-                    onMouseEnter={(e) => {
-                      if (!todo.completed)
-                        (e.currentTarget as HTMLElement).style.borderColor = 'rgba(167,139,250,0.7)'
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!todo.completed)
-                        (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.2)'
+                    className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center transition-all duration-200"
+                    style={todo.completed ? {
+                      background: 'linear-gradient(135deg, #7c3aed, #4f46e5)',
+                      boxShadow: '0 2px 8px rgba(124,58,237,0.4)',
+                      border: 'none',
+                    } : {
+                      border: '2px solid #ddd6fe',
+                      background: 'white',
                     }}
                   >
-                    {todo.completed && (
-                      <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
+                    {todo.completed && <CheckIcon />}
                   </button>
 
                   {/* Title */}
@@ -280,27 +258,20 @@ export default function App() {
                     <input
                       autoFocus
                       value={editingText}
-                      onChange={(e) => setEditingText(e.target.value)}
+                      onChange={e => setEditingText(e.target.value)}
                       onBlur={() => handleEditSave(todo.id)}
-                      onKeyDown={(e) => {
+                      onKeyDown={e => {
                         if (e.key === 'Enter') handleEditSave(todo.id)
                         if (e.key === 'Escape') setEditingId(null)
                       }}
-                      className="flex-1 text-sm bg-transparent outline-none"
-                      style={{
-                        color: 'rgba(255,255,255,0.85)',
-                        borderBottom: '1px solid rgba(167,139,250,0.5)',
-                        caretColor: '#a78bfa',
-                      }}
+                      className="flex-1 text-sm font-medium bg-transparent outline-none"
+                      style={{ color: '#374151', borderBottom: '1.5px solid #a78bfa', caretColor: '#7c3aed', paddingBottom: '2px' }}
                     />
                   ) : (
                     <span
-                      onDoubleClick={() => handleEditStart(todo)}
-                      className="flex-1 text-sm select-none transition-all duration-200"
-                      style={{
-                        color: todo.completed ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.75)',
-                        textDecoration: todo.completed ? 'line-through' : 'none',
-                      }}
+                      className="flex-1 text-sm font-medium select-none transition-all duration-200"
+                      style={{ color: todo.completed ? '#c4b5fd' : '#374151', textDecoration: todo.completed ? 'line-through' : 'none' }}
+                      onDoubleClick={() => { setEditingId(todo.id); setEditingText(todo.title) }}
                       title="더블클릭으로 수정"
                     >
                       {todo.title}
@@ -310,22 +281,20 @@ export default function App() {
                   {/* Delete */}
                   <button
                     onClick={() => handleDelete(todo.id)}
-                    className="delete-btn opacity-0 transition-all duration-200 flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center"
-                    style={{ color: 'rgba(255,255,255,0.3)' }}
-                    onMouseEnter={(e) => {
+                    className="opacity-0 group-hover:opacity-100 flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-150"
+                    style={{ color: '#d1d5db' }}
+                    onMouseEnter={e => {
                       const el = e.currentTarget as HTMLElement
-                      el.style.background = 'rgba(239,68,68,0.15)'
-                      el.style.color = 'rgba(252,165,165,1)'
+                      el.style.color = '#ef4444'
+                      el.style.background = '#fef2f2'
                     }}
-                    onMouseLeave={(e) => {
+                    onMouseLeave={e => {
                       const el = e.currentTarget as HTMLElement
+                      el.style.color = '#d1d5db'
                       el.style.background = 'transparent'
-                      el.style.color = 'rgba(255,255,255,0.3)'
                     }}
                   >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+                    <TrashIcon />
                   </button>
                 </li>
               ))
@@ -333,39 +302,27 @@ export default function App() {
           </ul>
 
           {/* Footer */}
-          {completedCount > 0 && (
-            <div className="flex items-center justify-between px-4 py-3 animate-fade-in"
-              style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-              <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>
-                {completedCount}개 완료됨
-              </span>
+          {doneCount > 0 && (
+            <div className="flex items-center justify-between px-5 py-3.5" style={{ borderTop: '1px solid #f3f0ff' }}>
+              <span className="text-xs" style={{ color: '#c4b5fd' }}>{doneCount}개 완료</span>
               <button
-                onClick={handleClearCompleted}
-                className="flex items-center gap-1.5 text-xs font-medium transition-all duration-200 px-3 py-1.5 rounded-lg"
-                style={{ color: 'rgba(252,165,165,0.7)' }}
-                onMouseEnter={(e) => {
-                  const el = e.currentTarget as HTMLElement
-                  el.style.background = 'rgba(239,68,68,0.1)'
-                  el.style.color = 'rgba(252,165,165,1)'
-                }}
-                onMouseLeave={(e) => {
-                  const el = e.currentTarget as HTMLElement
-                  el.style.background = 'transparent'
-                  el.style.color = 'rgba(252,165,165,0.7)'
-                }}
+                onClick={async () => { try { await deleteCompletedTodos(); loadTodos() } catch { setError('삭제 실패') } }}
+                className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-all duration-150"
+                style={{ color: '#f87171' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#fef2f2' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
               >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
+                <TrashIcon />
                 완료 항목 삭제
               </button>
             </div>
           )}
+
         </div>
 
-        {/* Bottom hint */}
-        <p className="mt-5 text-center text-xs" style={{ color: 'rgba(255,255,255,0.15)' }}>
-          더블클릭으로 할 일을 수정할 수 있습니다
+        {/* Bottom caption */}
+        <p className="text-center text-xs mt-5 mb-8" style={{ color: '#c4b5fd' }}>
+          항목을 더블클릭하면 수정할 수 있어요
         </p>
       </div>
     </div>
