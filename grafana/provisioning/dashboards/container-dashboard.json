@@ -325,14 +325,16 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": {
-          "unit": "bytes",
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
           "color": { "mode": "thresholds" },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               { "color": "green", "value": null },
-              { "color": "yellow", "value": 536870912 },
-              { "color": "red", "value": 1073741824 }
+              { "color": "yellow", "value": 30 },
+              { "color": "red", "value": 70 }
             ]
           }
         },
@@ -347,7 +349,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum by (name) (container_memory_usage_bytes{job=\"cadvisor\", name!=\"\"})",
+          "expr": "(sum by (name) (container_memory_usage_bytes{job=\"cadvisor\", name!=\"\"}) / scalar(node_memory_MemTotal_bytes{job=\"node-exporter\"})) * 100",
           "legendFormat": "{{name}}",
           "refId": "A"
         }
